@@ -66,12 +66,13 @@
   </div>
 </div>
 
+<!-- SDKs -->
 <script src="https://www.gstatic.com/firebasejs/9.1.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.1.1/firebase-database-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
-  // Config Firebase
+  // === CONFIG FIREBASE (bucket corregido) ===
   const firebaseConfig = {
     apiKey: "AIzaSyC75WWrO1bkFQO_hFdt7pPoVd9UWW9d7II",
     authDomain: "proyectocalidad-7dd70.firebaseapp.com",
@@ -81,28 +82,55 @@
     messagingSenderId: "342109623209",
     appId: "1:342109623209:web:b86ad030642a3330682ab8"
   };
-
-  // Init (compat)
   const app = firebase.initializeApp(firebaseConfig);
   const db  = firebase.database();
 
-  // ========= CAMBIA AQUÍ si guardas históricos en otra ruta =========
-  const HISTORY_PATH = "/sensor-ESP1/history";
-  // =================================================================
+  // === RUTAS ===
+  const PATHS = {
+    esp1: { temp: '/sensor-ESP1/temperature', hum: '/sensor-ESP1/humidity' },
+    esp2: { temp: '/sensor-ESP2/temperature', hum: '/sensor-ESP2/humidity' }
+  };
 
-  // Estado
+  // === ESTADO / CHARTS ===
   let temperature1, humidity1, temperature2, humidity2;
   let temperatureChart, humidityChart;
 
-  // Lee número tanto si el nodo es un número directo como si es {value: n}
-  function readNumber(snapshot, key='value'){
-    const v = snapshot.val();
-    if (v == null) return null;
-    if (typeof v === 'number') return v;
-    if (typeof v === 'object' && v[key] != null) return v[key];
+  // === HELPERS robustos ===
+  function parseNum(x){
+    if (x == null) return null;
+    if (typeof x === 'number') return x;
+    if (typeof x === 'string' && !isNaN(parseFloat(x))) return parseFloat(x);
     return null;
   }
+  // Recibe el valor de un path que puede ser:
+  //   - número directo
+  //   - string numérico
+  //   - objeto {value: n}
+  //   - lista de hijos pushId -> {value: n, timestamp: t}
+  function extractLatestValue(data, valueKey='value'){
+    if (data == null) return null;
+    const direct = parseNum(data);
+    if (direct != null) return direct;
+    if (typeof data === 'object'){
+      if (data[valueKey] != null) return parseNum(data[valueKey]);
+      const keys = Object.keys(data);
+      if (!keys.length) return null;
+      keys.sort();                         // push IDs ordenables
+      const last = data[keys[keys.length-1]];
+      if (last == null) return null;
+      return parseNum(last) ?? parseNum(last[valueKey]);
+    }
+    return null;
+  }
+  // Suscribirse al ÚLTIMO valor de un path
+  function watchLatest(path, cb, valueKey='value'){
+    db.ref(path).on('value', snap=>{
+      const v = extractLatestValue(snap.val(), valueKey);
+      if (v != null) cb(v);
+    });
+  }
 
+  // === LOGIN (igual que tenías) ===
   function login(){
     const u = document.getElementById('username').value;
     const p = document.getElementById('password').value;
@@ -116,6 +144,7 @@
     }
   }
 
+  // === CHARTS ===
   function initCharts(){
     const tctx = document.getElementById('temperatureChart').getContext('2d');
     temperatureChart = new Chart(tctx,{
@@ -134,31 +163,126 @@
       }
     });
   }
+  function updateCharts(){
+    if(temperatureChart && temperature1!=null && temperature2!=null){
+      temperatureChart.data.datasets[0].data = [temperature1, temperature2];
+      temperatureChart.update();
+    }
+    if(humidityChart && humidity1!=null && humidity2!=null){
+      humidityChart.data.datasets[0].data = [humidity1, humidity2];
+      humidityChart.update();
+    }
+  }
 
-  // **RUTAS actualizadas a sensor-ESP1/ESP2**
+  // === LECTURA EN VIVO (usa el último hijo) ===
   function fetchData(){
-    db.ref('/sensor-ESP1/temperature').on('value', snap=>{
-      temperature1 = readNumber(snap);
-      if(temperature1!=null){
-        document.getElementById('temperature1').innerText = "Temperature: "+temperature1+" °C";
-        updateCharts();
+    // ESP1
+    watchLatest(PATHS.esp1.temp, v=>{
+      temperature1 = v;
+      document.getElementById('temperature1').innerText = "Temperature: "+v+" °C";
+      updateCharts();
+    });
+    watchLatest(PATHS.esp1.hum, v=>{
+      humidity1 = v;
+      document.getElementById('humidity1').innerText = "Humidity: "+v+" %";
+      updateCharts();
+    });
+    // ESP2
+    watchLatest(PATHS.esp2.temp, v=>{
+      temperature2 = v;
+      document.getElementById('temperature2').innerText = "Temperature: "+v+" °C";
+      updateCharts();
+    });
+    watchLatest(PATHS.esp2.hum, v=>{
+      humidity2 = v;
+      document.getElementById('humidity2').innerText = "Humidity: "+v+" %";
+      updateCharts();
+    });
+  }
+
+  // === HISTÓRICOS (ESP1): une temp y hum por timestamp ===
+  function showHistory(){
+    document.querySelector('.dashboard').style.display='none';
+    document.querySelector('.history').style.display='block';
+    fetchHistoricalData(); // últimos 100 por defecto
+  }
+  function backToDashboard(){
+    document.querySelector('.history').style.display='none';
+    document.querySelector('.dashboard').style.display='block';
+  }
+
+  // Obtiene rango por timestamp para una ruta
+  function getRange(path, startSec, endSec, limit=100){
+    let q = db.ref(path).orderByChild('timestamp');
+    if (startSec != null) q = q.startAt(startSec);
+    if (endSec   != null) q = q.endAt(endSec);
+    return q.limitToLast(limit).once('value').then(s=>Object.values(s.val()||{}));
+  }
+
+  function fetchHistoricalData(){
+    // últimos 100 registros de ESP1
+    Promise.all([
+      getRange(PATHS.esp1.temp, null, null, 100),
+      getRange(PATHS.esp1.hum , null, null, 100)
+    ]).then(([temps, hums])=>{
+      renderJoinedTable(temps, hums);
+    });
+  }
+
+  function filterData(){
+    const d = document.getElementById('filter-date').value; // YYYY-MM-DD
+    if(!d) return;
+    const start = Math.floor(new Date(d+'T00:00:00').getTime()/1000);
+    const end   = Math.floor(new Date(d+'T23:59:59').getTime()/1000);
+
+    Promise.all([
+      getRange(PATHS.esp1.temp, start, end, 500),
+      getRange(PATHS.esp1.hum , start, end, 500)
+    ]).then(([temps, hums])=>{
+      renderJoinedTable(temps, hums);
+    });
+  }
+
+  // Une por timestamp exacto y pinta la tabla
+  function renderJoinedTable(temps, hums){
+    const tbody = document.querySelector('#data-table tbody');
+    tbody.innerHTML = '';
+
+    const map = new Map(); // ts -> {temp, hum}
+    temps.forEach(r=>{
+      if (r && r.timestamp!=null) {
+        const ts = r.timestamp;
+        const obj = map.get(ts) || {};
+        obj.temp = parseNum(r.value);
+        map.set(ts, obj);
       }
     });
-    db.ref('/sensor-ESP1/humidity').on('value', snap=>{
-      humidity1 = readNumber(snap);
-      if(humidity1!=null){
-        document.getElementById('humidity1').innerText = "Humidity: "+humidity1+" %";
-        updateCharts();
+    hums.forEach(r=>{
+      if (r && r.timestamp!=null) {
+        const ts = r.timestamp;
+        const obj = map.get(ts) || {};
+        obj.hum = parseNum(r.value);
+        map.set(ts, obj);
       }
     });
-    db.ref('/sensor-ESP2/temperature').on('value', snap=>{
-      temperature2 = readNumber(snap);
-      if(temperature2!=null){
-        document.getElementById('temperature2').innerText = "Temperature: "+temperature2+" °C";
-        updateCharts();
-      }
+
+    // ordenar por fecha desc
+    const rows = Array.from(map.entries())
+      .map(([ts, v]) => ({ ts, temp: v.temp, hum: v.hum }))
+      .sort((a,b)=>b.ts - a.ts);
+
+    if (!rows.length){
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td colspan="3">Sin datos</td>`;
+      tbody.appendChild(tr);
+      return;
+    }
+
+    rows.forEach(r=>{
+      const tr = document.createElement('tr');
+      const date = new Date(r.ts*1000).toLocaleString();
+      tr.innerHTML = `<td>${date}</td><td>${r.temp ?? '-'}</td><td>${r.hum ?? '-'}</td>`;
+      tbody.appendChild(tr);
     });
-    db.ref('/sensor-ESP2/humidity').on('value', snap=>{
-      humidity2 = readNumber(snap);
-      if(humidity2!=null){
-        document.getElementById('humidity2').innerText
+  }
+</script>
