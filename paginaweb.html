@@ -1,261 +1,216 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP32 Data Dashboard</title>
-    <style>
-        /* Estilos de la página */
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #f4f4f9;
-        }
-        .container {
-            max-width: 900px;
-            margin: 50px auto;
-            padding: 20px;
-            background-color: #fff;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        }
-        .login-form {
-            display: none;
-        }
-        .dashboard {
-            display: none;
-        }
-        .login-form input {
-            padding: 10px;
-            margin: 10px 0;
-            width: 100%;
-            box-sizing: border-box;
-            border-radius: 5px;
-            border: 1px solid #ddd;
-        }
-        .btn {
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .btn:hover {
-            background-color: #45a049;
-        }
-        #chart-container {
-            width: 100%;
-            height: 400px;
-            margin-top: 20px;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ESP32 Data Dashboard</title>
+  <style>
+    body{font-family:Arial,sans-serif;margin:0;padding:0;background:#f4f4f9}
+    .container{max-width:900px;margin:50px auto;padding:20px;background:#fff;border-radius:10px;box-shadow:0 0 10px rgba(0,0,0,.1)}
+    .login-form{display:block;}       /* ← visible al inicio */
+    .dashboard{display:none;}
+    .history{display:none;}           /* ← oculto al inicio */
+    .login-form input{padding:10px;margin:10px 0;width:100%;box-sizing:border-box;border-radius:5px;border:1px solid #ddd}
+    .btn{background:#4CAF50;color:#fff;padding:10px 20px;border:none;border-radius:5px;cursor:pointer}
+    .btn:hover{background:#45a049}
+    #chart-container{width:100%;height:400px;margin-top:20px}
+    canvas{margin-top:16px}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{border:1px solid #eee;padding:8px;text-align:left}
+    th{background:#f7f7f7}
+  </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Login Form -->
-        <div class="login-form">
-            <h2>Login</h2>
-            <input type="text" id="username" placeholder="Username" />
-            <input type="password" id="password" placeholder="Password" />
-            <button class="btn" onclick="login()">Login</button>
-            <p id="login-error" style="color: red; display: none;">Invalid credentials. Please try again.</p>
-        </div>
+<div class="container">
+  <!-- Login -->
+  <div class="login-form">
+    <h2>Login</h2>
+    <input type="text" id="username" placeholder="Username"/>
+    <input type="password" id="password" placeholder="Password"/>
+    <button class="btn" onclick="login()">Login</button>
+    <p id="login-error" style="color:red;display:none;">Invalid credentials.</p>
+  </div>
 
-        <!-- Dashboard -->
-        <div class="dashboard">
-            <h2>ESP32 Data Dashboard</h2>
-            <div>
-                <h3>ESP32 1 (Temperatura y Humedad)</h3>
-                <p id="temperature1">Loading...</p>
-                <p id="humidity1">Loading...</p>
-            </div>
-            <div>
-                <h3>ESP32 2 (Temperatura y Humedad)</h3>
-                <p id="temperature2">Loading...</p>
-                <p id="humidity2">Loading...</p>
-            </div>
-            <div id="chart-container">
-                <canvas id="temperatureChart"></canvas>
-                <canvas id="humidityChart"></canvas>
-            </div>
-            <button class="btn" onclick="showHistory()">Ver Datos Históricos</button>
-        </div>
-
-        <!-- Data History -->
-        <div class="history">
-            <h2>Datos Históricos</h2>
-            <input type="date" id="filter-date" />
-            <button class="btn" onclick="filterData()">Filtrar</button>
-            <table id="data-table">
-                <tr>
-                    <th>Fecha</th>
-                    <th>Temperatura</th>
-                    <th>Humedad</th>
-                </tr>
-            </table>
-        </div>
+  <!-- Dashboard -->
+  <div class="dashboard">
+    <h2>ESP32 Data Dashboard</h2>
+    <div>
+      <h3>ESP32 1 (Temperatura y Humedad)</h3>
+      <p id="temperature1">Loading...</p>
+      <p id="humidity1">Loading...</p>
     </div>
+    <div>
+      <h3>ESP32 2 (Temperatura y Humedad)</h3>
+      <p id="temperature2">Loading...</p>
+      <p id="humidity2">Loading...</p>
+    </div>
+    <div id="chart-container">
+      <canvas id="temperatureChart"></canvas>
+      <canvas id="humidityChart"></canvas>
+    </div>
+    <button class="btn" onclick="showHistory()">Ver Datos Históricos</button>
+  </div>
 
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.1.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.1.1/firebase-database.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Históricos -->
+  <div class="history">
+    <h2>Datos Históricos</h2>
+    <input type="date" id="filter-date"/>
+    <button class="btn" onclick="filterData()">Filtrar</button>
+    <table id="data-table">
+      <thead>
+        <tr><th>Fecha</th><th>Temperatura</th><th>Humedad</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <button class="btn" onclick="backToDashboard()">Volver</button>
+  </div>
+</div>
 
-    <script>
-        // Firebase configuration
-       const firebaseConfig = {
-        apiKey: "AIzaSyC75WWrO1bkFQO_hFdt7pPoVd9UWW9d7II",
-        authDomain: "proyectocalidad-7dd70.firebaseapp.com",
-        databaseURL: "https://proyectocalidad-7dd70-default-rtdb.firebaseio.com",
-        projectId: "proyectocalidad-7dd70",
-        storageBucket: "proyectocalidad-7dd70.firebasestorage.app",
-        messagingSenderId: "342109623209",
-        appId: "1:342109623209:web:b86ad030642a3330682ab8"
-        };
+<!-- Firebase SDK (compat para usar tu misma API v8) -->
+<script src="https://www.gstatic.com/firebasejs/9.1.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.1.1/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-        // Initialize Firebase
-        const app = firebase.initializeApp(firebaseConfig);
-        const db = firebase.database(app);
+<script>
+  // Config Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyC75WWrO1bkFQO_hFdt7pPoVd9UWW9d7II",
+  authDomain: "proyectocalidad-7dd70.firebaseapp.com",
+  databaseURL: "https://proyectocalidad-7dd70-default-rtdb.firebaseio.com",
+  projectId: "proyectocalidad-7dd70",
+  storageBucket: "proyectocalidad-7dd70.firebasestorage.app",
+  messagingSenderId: "342109623209",
+  appId: "1:342109623209:web:b86ad030642a3330682ab8"
+};
 
-        // Variables to store fetched data
-        let temperature1, humidity1, temperature2, humidity2;
+  // Init (compat)
+  const app = firebase.initializeApp(firebaseConfig);
+  const db  = firebase.database();
 
-        // Login function
-        function login() {
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            if (username === 'admin' && password === 'admin') {
-                document.querySelector('.login-form').style.display = 'none';
-                document.querySelector('.dashboard').style.display = 'block';
-                fetchData();
-            } else {
-                document.getElementById('login-error').style.display = 'block';
-            }
-        }
+  // Estado
+  let temperature1, humidity1, temperature2, humidity2;
+  let temperatureChart, humidityChart;
 
-        // Fetch data from Firebase
-        function fetchData() {
-            const temperatureRef1 = db.ref('/sensor/ESP32_1/temperature');
-            const humidityRef1 = db.ref('/sensor/ESP32_1/humidity');
-            const temperatureRef2 = db.ref('/sensor/ESP32_2/temperature');
-            const humidityRef2 = db.ref('/sensor/ESP32_2/humidity');
+  function login(){
+    const u = document.getElementById('username').value;
+    const p = document.getElementById('password').value;
+    if(u==='admin' && p==='admin'){
+      document.querySelector('.login-form').style.display='none';
+      document.querySelector('.dashboard').style.display='block';
+      fetchData();
+      initCharts();
+    }else{
+      document.getElementById('login-error').style.display='block';
+    }
+  }
 
-            temperatureRef1.on('value', (snapshot) => {
-                temperature1 = snapshot.val();
-                document.getElementById('temperature1').innerText = "Temperature: " + temperature1 + " °C";
-                updateCharts();
-            });
+  function initCharts(){
+    const tctx = document.getElementById('temperatureChart').getContext('2d');
+    temperatureChart = new Chart(tctx,{
+      type:'line',
+      data:{
+        labels:['ESP32 1','ESP32 2'],
+        datasets:[{label:'Temperature (°C)', data:[0,0], borderColor:'#FF5733', fill:false}]
+      }
+    });
+    const hctx = document.getElementById('humidityChart').getContext('2d');
+    humidityChart = new Chart(hctx,{
+      type:'line',
+      data:{
+        labels:['ESP32 1','ESP32 2'],
+        datasets:[{label:'Humidity (%)', data:[0,0], borderColor:'#33FF57', fill:false}]
+      }
+    });
+  }
 
-            humidityRef1.on('value', (snapshot) => {
-                humidity1 = snapshot.val();
-                document.getElementById('humidity1').innerText = "Humidity: " + humidity1 + " %";
-                updateCharts();
-            });
+  function fetchData(){
+    db.ref('/sensor/ESP32_1/temperature').on('value', snap=>{
+      temperature1 = snap.val();
+      document.getElementById('temperature1').innerText = "Temperature: "+temperature1+" °C";
+      updateCharts();
+    });
+    db.ref('/sensor/ESP32_1/humidity').on('value', snap=>{
+      humidity1 = snap.val();
+      document.getElementById('humidity1').innerText = "Humidity: "+humidity1+" %";
+      updateCharts();
+    });
+    db.ref('/sensor/ESP32_2/temperature').on('value', snap=>{
+      temperature2 = snap.val();
+      document.getElementById('temperature2').innerText = "Temperature: "+temperature2+" °C";
+      updateCharts();
+    });
+    db.ref('/sensor/ESP32_2/humidity').on('value', snap=>{
+      humidity2 = snap.val();
+      document.getElementById('humidity2').innerText = "Humidity: "+humidity2+" %";
+      updateCharts();
+    });
+  }
 
-            temperatureRef2.on('value', (snapshot) => {
-                temperature2 = snapshot.val();
-                document.getElementById('temperature2').innerText = "Temperature: " + temperature2 + " °C";
-                updateCharts();
-            });
+  function updateCharts(){
+    if(temperatureChart && temperature1!=null && temperature2!=null){
+      temperatureChart.data.datasets[0].data = [temperature1, temperature2];
+      temperatureChart.update();
+    }
+    if(humidityChart && humidity1!=null && humidity2!=null){
+      humidityChart.data.datasets[0].data = [humidity1, humidity2];
+      humidityChart.update();
+    }
+  }
 
-            humidityRef2.on('value', (snapshot) => {
-                humidity2 = snapshot.val();
-                document.getElementById('humidity2').innerText = "Humidity: " + humidity2 + " %";
-                updateCharts();
-            });
-        }
+  function showHistory(){
+    document.querySelector('.dashboard').style.display='none';
+    document.querySelector('.history').style.display='block';
+    fetchHistoricalData();
+  }
+  function backToDashboard(){
+    document.querySelector('.history').style.display='none';
+    document.querySelector('.dashboard').style.display='block';
+  }
 
-        // Update charts with new data
-        function updateCharts() {
-            if (temperature1 !== undefined && temperature2 !== undefined) {
-                const temperatureChart = new Chart(document.getElementById('temperatureChart'), {
-                    type: 'line',
-                    data: {
-                        labels: ['ESP32 1', 'ESP32 2'],
-                        datasets: [{
-                            label: 'Temperature (°C)',
-                            data: [temperature1, temperature2],
-                            borderColor: '#FF5733',
-                            fill: false
-                        }]
-                    }
-                });
-            }
+  function fetchHistoricalData(){
+    // Ajusta esta ruta a donde guardas {timestamp, value, humidity}
+    const refPath = '/sensor/ESP32_1/history';
+    firebase.database().ref(refPath).once('value', snap=>{
+      const tbody = document.querySelector('#data-table tbody');
+      tbody.innerHTML='';
+      const data = snap.val() || {};
+      Object.keys(data).forEach(k=>{
+        const r = data[k];
+        addRow(tbody, r.timestamp, r.value, r.humidity);
+      });
+    });
+  }
 
-            if (humidity1 !== undefined && humidity2 !== undefined) {
-                const humidityChart = new Chart(document.getElementById('humidityChart'), {
-                    type: 'line',
-                    data: {
-                        labels: ['ESP32 1', 'ESP32 2'],
-                        datasets: [{
-                            label: 'Humidity (%)',
-                            data: [humidity1, humidity2],
-                            borderColor: '#33FF57',
-                            fill: false
-                        }]
-                    }
-                });
-            }
-        }
+  function filterData(){
+    const d = document.getElementById('filter-date').value; // YYYY-MM-DD
+    if(!d) return;
+    const start = new Date(d+'T00:00:00').getTime()/1000; // segundos
+    const end   = new Date(d+'T23:59:59').getTime()/1000;
 
-        // Show historical data section
-        function showHistory() {
-            document.querySelector('.dashboard').style.display = 'none';
-            document.querySelector('.history').style.display = 'block';
-            fetchHistoricalData();
-        }
+    const refPath = '/sensor/ESP32_1/history';
+    firebase.database()
+      .ref(refPath)
+      .orderByChild('timestamp')
+      .startAt(start)
+      .endAt(end)
+      .once('value', snap=>{
+        const tbody = document.querySelector('#data-table tbody');
+        tbody.innerHTML='';
+        const data = snap.val() || {};
+        Object.keys(data).forEach(k=>{
+          const r = data[k];
+          addRow(tbody, r.timestamp, r.value, r.humidity);
+        });
+      });
+  }
 
-        // Fetch and display historical data
-        function fetchHistoricalData() {
-            const historicalRef = db.ref('/sensor/ESP32_1/temperature');
-
-            historicalRef.on('value', (snapshot) => {
-                const data = snapshot.val();
-                const table = document.getElementById('data-table');
-
-                for (let key in data) {
-                    let row = table.insertRow();
-                    let timestamp = new Date(data[key].timestamp * 1000);
-                    let date = timestamp.toLocaleString();
-
-                    let cell1 = row.insertCell(0);
-                    let cell2 = row.insertCell(1);
-                    let cell3 = row.insertCell(2);
-
-                    cell1.innerHTML = date;
-                    cell2.innerHTML = data[key].value;
-                    cell3.innerHTML = data[key].humidity;
-                }
-            });
-        }
-
-        // Filter data by date
-        function filterData() {
-            const filterDate = document.getElementById('filter-date').value;
-            const filteredRef = db.ref('/sensor/ESP32_1/temperature');
-
-            filteredRef.orderByChild('timestamp').equalTo(filterDate).on('value', (snapshot) => {
-                const data = snapshot.val();
-                const table = document.getElementById('data-table');
-                table.innerHTML = ""; // Clear the table before adding filtered data
-
-                for (let key in data) {
-                    let row = table.insertRow();
-                    let timestamp = new Date(data[key].timestamp * 1000);
-                    let date = timestamp.toLocaleString();
-
-                    let cell1 = row.insertCell(0);
-                    let cell2 = row.insertCell(1);
-                    let cell3 = row.insertCell(2);
-
-                    cell1.innerHTML = date;
-                    cell2.innerHTML = data[key].value;
-                    cell3.innerHTML = data[key].humidity;
-                }
-            });
-        }
-    </script>
+  function addRow(tbody, ts, temp, hum){
+    const tr = document.createElement('tr');
+    const date = new Date(ts*1000).toLocaleString();
+    tr.innerHTML = `<td>${date}</td><td>${temp}</td><td>${hum}</td>`;
+    tbody.appendChild(tr);
+  }
+</script>
 </body>
 </html>
+
