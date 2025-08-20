@@ -71,7 +71,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
-  // Config Firebase (bucket corregido)
+  // Config Firebase
   const firebaseConfig = {
     apiKey: "AIzaSyC75WWrO1bkFQO_hFdt7pPoVd9UWW9d7II",
     authDomain: "proyectocalidad-7dd70.firebaseapp.com",
@@ -86,15 +86,15 @@
   const app = firebase.initializeApp(firebaseConfig);
   const db  = firebase.database();
 
-  // ===== Ajusta solo esto si tu histórico está en otra ruta =====
-  const HISTORY_PATH = "/sensor/ESP32_1/history";
-  // =============================================================
+  // ========= CAMBIA AQUÍ si guardas históricos en otra ruta =========
+  const HISTORY_PATH = "/sensor-ESP1/history";
+  // =================================================================
 
   // Estado
   let temperature1, humidity1, temperature2, humidity2;
   let temperatureChart, humidityChart;
 
-  // Si el nodo es un número -> devuélvelo; si es objeto -> usa 'value'
+  // Lee número tanto si el nodo es un número directo como si es {value: n}
   function readNumber(snapshot, key='value'){
     const v = snapshot.val();
     if (v == null) return null;
@@ -135,10 +135,11 @@
     });
   }
 
+  // **RUTAS actualizadas a sensor-ESP1/ESP2**
   function fetchData(){
     db.ref('/sensor-ESP1/temperature').on('value', snap=>{
       temperature1 = readNumber(snap);
-      if(temperature1!=null) {
+      if(temperature1!=null){
         document.getElementById('temperature1').innerText = "Temperature: "+temperature1+" °C";
         updateCharts();
       }
@@ -157,74 +158,7 @@
         updateCharts();
       }
     });
-    db.ref('/sensorESP2/humidity').on('value', snap=>{
+    db.ref('/sensor-ESP2/humidity').on('value', snap=>{
       humidity2 = readNumber(snap);
       if(humidity2!=null){
-        document.getElementById('humidity2').innerText = "Humidity: "+humidity2+" %";
-        updateCharts();
-      }
-    });
-  }
-
-  function updateCharts(){
-    if(temperatureChart && temperature1!=null && temperature2!=null){
-      temperatureChart.data.datasets[0].data = [temperature1, temperature2];
-      temperatureChart.update();
-    }
-    if(humidityChart && humidity1!=null && humidity2!=null){
-      humidityChart.data.datasets[0].data = [humidity1, humidity2];
-      humidityChart.update();
-    }
-  }
-
-  function showHistory(){
-    document.querySelector('.dashboard').style.display='none';
-    document.querySelector('.history').style.display='block';
-    fetchHistoricalData();
-  }
-  function backToDashboard(){
-    document.querySelector('.history').style.display='none';
-    document.querySelector('.dashboard').style.display='block';
-  }
-
-  function fetchHistoricalData(){
-    firebase.database().ref(HISTORY_PATH).once('value', snap=>{
-      const tbody = document.querySelector('#data-table tbody');
-      tbody.innerHTML='';
-      const data = snap.val() || {};
-      Object.keys(data).forEach(k=>{
-        const r = data[k];
-        addRow(tbody, r.timestamp, r.value, r.humidity);
-      });
-    });
-  }
-
-  function filterData(){
-    const d = document.getElementById('filter-date').value; // YYYY-MM-DD
-    if(!d) return;
-    const start = new Date(d+'T00:00:00').getTime()/1000; // segundos
-    const end   = new Date(d+'T23:59:59').getTime()/1000;
-
-    firebase.database()
-      .ref(HISTORY_PATH)
-      .orderByChild('timestamp')
-      .startAt(start)
-      .endAt(end)
-      .once('value', snap=>{
-        const tbody = document.querySelector('#data-table tbody');
-        tbody.innerHTML='';
-        const data = snap.val() || {};
-        Object.keys(data).forEach(k=>{
-          const r = data[k];
-          addRow(tbody, r.timestamp, r.value, r.humidity);
-        });
-      });
-  }
-
-  function addRow(tbody, ts, temp, hum){
-    const tr = document.createElement('tr');
-    const date = new Date(ts*1000).toLocaleString();
-    tr.innerHTML = `<td>${date}</td><td>${temp}</td><td>${hum}</td>`;
-    tbody.appendChild(tr);
-  }
-</script>
+        document.getElementById('humidity2').innerText
